@@ -9,28 +9,9 @@ SandPacker:RegisterEvent("CHAT_MSG_LOOT")
 
 SandPacker_SavedNodes = SandPacker_SavedNodes or {}
 
-local silithystNodes = {
-    {x = 41.2, y = 45.6},
-    {x = 54.3, y = 34.7},
-    {x = 60.1, y = 25.3},
-    {x = 36.7, y = 29.8},
-    {x = 49.5, y = 19.2},
-    {x = 65.2, y = 44.1},
-    {x = 32.8, y = 53.7},
-    {x = 44.9, y = 62.3},
-    {x = 58.7, y = 59.1},
-    {x = 51.3, y = 51.2},
-    {x = 34.0, y = 36.0},
-    {x = 60.0, y = 53.0},
-    {x = 45.0, y = 23.0},
-    {x = 53.0, y = 63.0},
-    {x = 39.0, y = 59.0},
-    {x = 63.0, y = 29.0},
-    {x = 57.0, y = 41.0},
-    {x = 38.0, y = 41.0},
-    {x = 47.0, y = 38.0},
-    {x = 56.0, y = 32.0},
-}
+
+-- Load Silithyst node locations from SandLocations.lua
+local silithystNodes = SandPacker_SilithystNodes or {}
 
 
 local mapPins = {}
