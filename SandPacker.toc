@@ -10,5 +10,9 @@ Libs\HereBeDragons\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\HereBeDragons\HereBeDragons-2.0.lua
 Libs\HereBeDragons\HereBeDragons-Pins-2.0.lua
 Libs\HereBeDragons\HereBeDragons-Migrate.lua
+Libs\LibDBIcon-1.0\LibStub\LibStub.lua
+Libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0\LibDBIcon-1.0.lua
 SandLocations.lua
 SandPacker.lua

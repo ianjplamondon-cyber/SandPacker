@@ -1,99 +1,167 @@
+-- Load Silithyst node locations from SandLocations.lua
 
--- SandPacker for World of Warcraft Classic
--- This addon tracks Silithyst locations and displays them on the map.
-
-local SandPacker = CreateFrame("Frame", "SandPackerFrame")
-SandPacker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-SandPacker:RegisterEvent("PLAYER_ENTERING_WORLD")
-SandPacker:RegisterEvent("CHAT_MSG_LOOT")
-
+local trackingEnabled = true -- Ensure tracking is enabled by default
+local silithystNodes = SandPacker_SilithystNodes or {}
 SandPacker_SavedNodes = SandPacker_SavedNodes or {}
 
+-- Persistent pin data for robust re-registration
+local SandPacker_PinData = {}
 
--- Load Silithyst node locations from SandLocations.lua
-local silithystNodes = SandPacker_SilithystNodes or {}
+local SandPackerRef = {}
 
+-- HereBeDragons library assignments
+local HBD = LibStub and LibStub("HereBeDragonsQuestie-2.0", true)
+local HBDPins = LibStub and LibStub("HereBeDragonsQuestie-Pins-2.0", true)
 
-local mapPins = {}
-local minimapPins = {}
+activePins = {}
 
--- HBD integration
-local HBD = LibStub and LibStub("HereBeDragons-2.0", true)
-local HBDPins = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
-local SANDPACKER_REF = "SandPacker"
-local trackingEnabled = true
-local minimapButton
-local mapOverlay
+-- Main addon frame for event handling
+local SandPacker = CreateFrame("Frame", "SandPackerFrame")
 
+-- Standalone robust frame pool for SandPacker
 
-function AddMapPins()
+local SandPackerFramePool = {}
+local unusedFrames = {}
+local usedFrames = {}
+local frameCount = 0
+
+local function CreatePinFrame()
+    frameCount = frameCount + 1
+    local frame = CreateFrame("Frame", "SandPackerPin"..frameCount, WorldMapFrame)
+    frame:SetSize(16, 16)
+    frame:SetFrameStrata("TOOLTIP")
+    frame:SetFrameLevel(100)
+    local icon = frame:CreateTexture(nil, "ARTWORK")
+    frame.icon = icon
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
+    icon:SetTexCoord(0, 1, 0, 1)
+    icon:SetAllPoints(frame)
+    frame:Hide()
+    return frame
+end
+
+function SandPackerFramePool:GetFrame()
+    local frame = next(unusedFrames)
+    if frame then
+        unusedFrames[frame] = nil
+    else
+        frame = CreatePinFrame()
+    end
+    usedFrames[frame] = true
+    frame:Show()
+    return frame
+end
+
+function SandPackerFramePool:RecycleFrame(frame)
+    if frame then
+        frame:Hide()
+        usedFrames[frame] = nil
+        unusedFrames[frame] = frame
+    end
+end
+
+function SandPackerFramePool:RecycleAll()
+    for frame in pairs(usedFrames) do
+        self:RecycleFrame(frame)
+    end
+end
+
+local SandPackerMapDrawQueue = {}
+local SandPackerMinimapDrawQueue = {}
+local drawQueueTickRate = 0.2
+local drawTimer = nil
+
+local function ProcessQueue()
+    while #SandPackerMapDrawQueue > 0 do
+        local mapDrawCall = table.remove(SandPackerMapDrawQueue, 1)
+        local frame = mapDrawCall[2]
+        HBDPins:AddWorldMapIconMap(unpack(mapDrawCall))
+        frame:SetSize(16, 16)
+        -- Questie-style layering and parent assignment
+        local frameLevel = WorldMapFrame:GetFrameLevel() + 2015
+        frame:SetParent(WorldMapFrame)
+        frame:SetFrameStrata(WorldMapFrame:GetFrameStrata())
+        frame:SetFrameLevel(frameLevel)
+    end
+    while #SandPackerMinimapDrawQueue > 0 do
+        local minimapDrawCall = table.remove(SandPackerMinimapDrawQueue, 1)
+        local frame = minimapDrawCall[2]
+        HBDPins:AddMinimapIconMap(unpack(minimapDrawCall))
+        frame:SetSize(16, 16)
+        local frameLevel = Minimap:GetFrameLevel() + 2015
+        frame:SetParent(Minimap)
+        frame:SetFrameStrata(Minimap:GetFrameStrata())
+        frame:SetFrameLevel(frameLevel)
+    end
+end
+
+local function StartDrawQueueTimer()
+    if not drawTimer then
+        drawTimer = C_Timer.NewTicker(drawQueueTickRate, ProcessQueue)
+    end
+end
+
+local function AddMapPins()
     if not HBD or not HBDPins then
         print("[SandPacker] HereBeDragons library not found!")
         return
     end
-    -- Remove old pins
-    HBDPins:RemoveAllWorldMapIcons(SANDPACKER_REF)
-    HBDPins:RemoveAllMinimapIcons(SANDPACKER_REF)
-    mapPins = {}
-    minimapPins = {}
-
+    SandPackerFramePool:RecycleAll()
+    activePins = {}
+    SandPackerMapDrawQueue = {}
+    SandPackerMinimapDrawQueue = {}
     -- Merge static and discovered nodes
     local allNodes = {}
     for _, node in ipairs(silithystNodes) do table.insert(allNodes, node) end
     for _, node in ipairs(SandPacker_SavedNodes) do table.insert(allNodes, node) end
     print("[SandPacker DEBUG] AddMapPins called. trackingEnabled:", trackingEnabled)
-    if not trackingEnabled then return end
-
-    -- Get Silithus map info
+    SandPacker_PinData = {}
     local silithusUiMapID = 1451 -- Classic Silithus
     for i, node in ipairs(allNodes) do
-        -- Create icon frame for world map
-    local pin = CreateFrame("Frame", nil, UIParent)
-    pin:SetSize(8, 8)
-        pin.icon = pin:CreateTexture(nil, "ARTWORK")
-        pin.icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
-        pin.icon:SetTexCoord(0, 1, 0, 1)
-        pin.icon:SetAllPoints(pin)
-        pin:Show()
-        mapPins[i] = pin
-        -- Add to world map using HBD
-        HBDPins:AddWorldMapIconMap(SANDPACKER_REF, pin, silithusUiMapID, node.x / 100, node.y / 100, nil, nil)
-        -- Add to minimap using HBD
-        HBDPins:AddMinimapIconMap(SANDPACKER_REF, pin, silithusUiMapID, node.x / 100, node.y / 100, false, false)
-        minimapPins[i] = pin
+        table.insert(SandPacker_PinData, {x = node.x, y = node.y})
+        local pin = SandPackerFramePool:GetFrame()
+        pin:SetFrameStrata("TOOLTIP")
+        pin:SetFrameLevel(200)
+        pin:SetWidth(16)
+        pin:SetHeight(16)
+        pin.x = node.x
+        pin.y = node.y
+        pin.UiMapID = silithusUiMapID
+        pin.data = { id = i, Name = "Silithyst Node", GetIconScale = function() return 1 end, Type = "manual" }
+        print(string.format("[SandPacker DEBUG] Queueing pin #%d at %.2f, %.2f", i, node.x, node.y))
+        table.insert(SandPackerMapDrawQueue, {SandPackerRef, pin, silithusUiMapID, node.x / 100, node.y / 100, -1})
+        table.insert(SandPackerMinimapDrawQueue, {SandPackerRef, pin, silithusUiMapID, node.x / 100, node.y / 100, false, false, "OVERLAY", 8})
+        pin.hidden = false
+        table.insert(activePins, pin)
     end
+    StartDrawQueueTimer()
+    print("[SandPacker DEBUG] activePins count after AddMapPins:", #activePins)
     print("[SandPacker DEBUG] Map pins placed using HereBeDragons.")
+    if HBDPins and HBDPins.worldmapProvider and HBDPins.worldmapProvider.RefreshAllData then
+        print("[SandPacker DEBUG] Forcing HBD worldmapProvider:RefreshAllData()")
+        HBDPins.worldmapProvider:RefreshAllData()
+    end
 end
+
+
 
 
 
 local function RemoveMapPins()
     print("[SandPacker DEBUG] RemoveMapPins called.")
-    if HBDPins then
-        HBDPins:RemoveAllWorldMapIcons(SANDPACKER_REF)
-        HBDPins:RemoveAllMinimapIcons(SANDPACKER_REF)
-    end
-    for _, pin in ipairs(mapPins) do
-        if pin then
-            pin:Hide()
-            pin:SetParent(nil)
-        end
-    end
-    mapPins = {}
-    for _, pin in ipairs(minimapPins) do
-        if pin then
-            pin:Hide()
-            pin:SetParent(nil)
-        end
-    end
-    minimapPins = {}
+    HBDPins:RemoveAllWorldMapIcons(SandPackerRef)
+    HBDPins:RemoveAllMinimapIcons(SandPackerRef)
+    SandPackerFramePool:RecycleAll()
+    activePins = {}
     SandPacker:SetScript("OnUpdate", nil)
 end
 
-local function ToggleTracking()
+
+function ToggleTracking()
     print("[SandPacker DEBUG] ToggleTracking called. trackingEnabled:", trackingEnabled)
     trackingEnabled = not trackingEnabled
     if trackingEnabled then
+        trackingEnabled = true
         AddMapPins()
     else
         RemoveMapPins()
@@ -102,9 +170,16 @@ end
 
 
 
+
+
+SandPacker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+SandPacker:RegisterEvent("PLAYER_ENTERING_WORLD")
+SandPacker:RegisterEvent("CHAT_MSG_LOOT")
+SandPacker:RegisterEvent("MAP_EXPLORATION_UPDATED")
+
 SandPacker:SetScript("OnEvent", function(self, event, ...)
     print("[SandPacker DEBUG] Event:", event)
-    if event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
+    if event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" or event == "MAP_EXPLORATION_UPDATED" then
         local zone = GetRealZoneText()
         if zone == "Silithus" then
             AddMapPins()
@@ -119,12 +194,9 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
             local mapID = 1451 -- Silithus mapID for Classic
             local px, py, _ = UnitPosition("player")
             if px and py then
-                -- Convert world position to map percent (approximate for Classic)
-                -- In Classic, we don't have C_Map, so we use hardcoded bounds
                 local minX, minY, maxX, maxY = 0, 0, 100, 100
                 local normX = math.floor(px + 0.5)
                 local normY = math.floor(py + 0.5)
-                -- Check for duplicates
                 local exists = false
                 for _, node in ipairs(SandPacker_SavedNodes) do
                     if math.abs(node.x - normX) < 1 and math.abs(node.y - normY) < 1 then
@@ -143,52 +215,10 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
 end)
 
 
--- Create a minimap button using the Silithyst icon
-local function CreateMinimapButton()
-    print("[SandPacker DEBUG] CreateMinimapButton called.")
-    if minimapButton then return end
-    minimapButton = CreateFrame("Button", "SandPackerMinimapButton", Minimap)
-    minimapButton:SetSize(32, 32)
-    minimapButton:SetFrameStrata("MEDIUM")
-    -- Place minimap button on the edge of the minimap (default at 45 degrees)
-    local radius = (Minimap:GetWidth() / 2) - 12
-    local angle = math.rad(45) -- 45 degrees, top-right
-    local x = math.cos(angle) * radius
-    local y = math.sin(angle) * radius
-    minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
-    minimapButton.icon = minimapButton:CreateTexture(nil, "ARTWORK")
-    minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
-    minimapButton.icon:SetTexCoord(0, 1, 0, 1)
-    minimapButton.icon:SetAllPoints(minimapButton)
-    minimapButton:Show()
-    print("[SandPacker DEBUG] Minimap button shown.")
-    minimapButton:SetScript("OnClick", function()
-        ToggleTracking()
-        if trackingEnabled then
-            GameTooltip:AddLine("SandPacker: Tracking ON", 0, 1, 0)
-        else
-            GameTooltip:AddLine("SandPacker: Tracking OFF", 1, 0, 0)
-        end
-        GameTooltip:Show()
-    end)
-    minimapButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText("SandPacker", 1, 1, 1)
-        if trackingEnabled then
-            GameTooltip:AddLine("Left-click to hide Silithyst nodes", 0, 1, 0)
-        else
-            GameTooltip:AddLine("Left-click to show Silithyst nodes", 1, 0, 0)
-        end
-        GameTooltip:Show()
-    end)
-    minimapButton:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-end
 
-print("[SandPacker DEBUG] Addon loaded and timer started.")
+
+print("[SandPacker DEBUG] Addon loaded.")
 C_Timer.After(2, function()
-    CreateMinimapButton()
     if GetRealZoneText() == "Silithus" then
         AddMapPins()
     end

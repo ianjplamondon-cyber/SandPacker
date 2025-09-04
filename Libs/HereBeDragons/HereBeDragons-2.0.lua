@@ -1,8 +1,9 @@
 -- HereBeDragons is a data API for the World of Warcraft mapping system
 
-local MAJOR, MINOR = "HereBeDragons-2.0", 30
+local MAJOR, MINOR = "HereBeDragonsQuestie-2.0", 30
 assert(LibStub, MAJOR .. " requires LibStub")
 
+---@class HereBeDragonsQuestie-2.0
 local HereBeDragons, oldversion = LibStub:NewLibrary(MAJOR, MINOR)
 if not HereBeDragons then return end
 
