@@ -1,0 +1,8 @@
+## Interface: 11507
+## Title: SandPacker
+## Notes: Maps Silithyst node locations in Silithus and displays them on the map.
+## Author: Pimptasty
+## Version: 0.1.0
+## SavedVariables: SandPacker_SavedNodes
+
+SandPacker.lua
