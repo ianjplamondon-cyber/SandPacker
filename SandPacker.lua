@@ -13,6 +13,30 @@ local SandPackerRef = {}
 local HBD = LibStub and LibStub("HereBeDragonsQuestie-2.0", true)
 local HBDPins = LibStub and LibStub("HereBeDragonsQuestie-Pins-2.0", true)
 
+-- LibDataBroker and LibDBIcon minimap button setup
+local LDB = LibStub("LibDataBroker-1.1", true)
+local LDBIcon = LibStub("LibDBIcon-1.0", true)
+
+local SandPackerLDB = nil
+if LDB then
+    SandPackerLDB = LDB:NewDataObject("SandPacker", {
+        type = "launcher",
+        text = "SandPacker",
+        icon = "Interface\\Icons\\INV_Misc_Dust_02",
+        OnClick = function(self, button)
+            ToggleTracking()
+        end,
+        OnTooltipShow = function(tooltip)
+            tooltip:AddLine("SandPacker")
+            tooltip:AddLine("Click to toggle Silithyst node tracking.")
+        end,
+    })
+end
+
+if LDBIcon and SandPackerLDB then
+    LDBIcon:Register("SandPacker", SandPackerLDB, {})
+end
+
 activePins = {}
 
 -- Main addon frame for event handling
@@ -28,7 +52,7 @@ local frameCount = 0
 local function CreatePinFrame()
     frameCount = frameCount + 1
     local frame = CreateFrame("Frame", "SandPackerPin"..frameCount, WorldMapFrame)
-    frame:SetSize(16, 16)
+    frame:SetSize(8, 8)
     frame:SetFrameStrata("TOOLTIP")
     frame:SetFrameLevel(100)
     local icon = frame:CreateTexture(nil, "ARTWORK")
@@ -77,11 +101,7 @@ local function ProcessQueue()
         local frame = mapDrawCall[2]
         HBDPins:AddWorldMapIconMap(unpack(mapDrawCall))
         frame:SetSize(16, 16)
-        -- Questie-style layering and parent assignment
-        local frameLevel = WorldMapFrame:GetFrameLevel() + 2015
-        frame:SetParent(WorldMapFrame)
-        frame:SetFrameStrata(WorldMapFrame:GetFrameStrata())
-        frame:SetFrameLevel(frameLevel)
+        -- Do NOT set parent/frame level/strata for world map pins; HBD handles this (Questie style)
     end
     while #SandPackerMinimapDrawQueue > 0 do
         local minimapDrawCall = table.remove(SandPackerMinimapDrawQueue, 1)
@@ -119,17 +139,21 @@ local function AddMapPins()
     local silithusUiMapID = 1451 -- Classic Silithus
     for i, node in ipairs(allNodes) do
         table.insert(SandPacker_PinData, {x = node.x, y = node.y})
+        print(string.format("[SandPacker DEBUG] Adding world map pin #%d at %.2f, %.2f", i, node.x, node.y))
+    local worldMapPin = CreateFrame("Frame", nil)
+    worldMapPin:SetSize(8, 8)
+    local icon = worldMapPin:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
+    icon:SetTexCoord(0, 1, 0, 1)
+    icon:SetAllPoints(worldMapPin)
+    worldMapPin.icon = icon
+    HBDPins:AddWorldMapIconMap(SandPackerRef, worldMapPin, silithusUiMapID, node.x / 100, node.y / 100, -1)
+        -- For minimap pins, still use frame pool
         local pin = SandPackerFramePool:GetFrame()
-        pin:SetFrameStrata("TOOLTIP")
-        pin:SetFrameLevel(200)
-        pin:SetWidth(16)
-        pin:SetHeight(16)
         pin.x = node.x
         pin.y = node.y
         pin.UiMapID = silithusUiMapID
         pin.data = { id = i, Name = "Silithyst Node", GetIconScale = function() return 1 end, Type = "manual" }
-        print(string.format("[SandPacker DEBUG] Queueing pin #%d at %.2f, %.2f", i, node.x, node.y))
-        table.insert(SandPackerMapDrawQueue, {SandPackerRef, pin, silithusUiMapID, node.x / 100, node.y / 100, -1})
         table.insert(SandPackerMinimapDrawQueue, {SandPackerRef, pin, silithusUiMapID, node.x / 100, node.y / 100, false, false, "OVERLAY", 8})
         pin.hidden = false
         table.insert(activePins, pin)
@@ -162,7 +186,11 @@ function ToggleTracking()
     trackingEnabled = not trackingEnabled
     if trackingEnabled then
         trackingEnabled = true
-        AddMapPins()
+        if GetRealZoneText() == "Silithus" then
+            AddMapPins()
+        else
+            print("[SandPacker] Tracking enabled, but you are not in Silithus.")
+        end
     else
         RemoveMapPins()
     end
@@ -181,7 +209,7 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
     print("[SandPacker DEBUG] Event:", event)
     if event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" or event == "MAP_EXPLORATION_UPDATED" then
         local zone = GetRealZoneText()
-        if zone == "Silithus" then
+        if zone == "Silithus" and trackingEnabled then
             AddMapPins()
         else
             RemoveMapPins()
