@@ -16,112 +16,63 @@ local silithystNodes = SandPacker_SilithystNodes or {}
 
 local mapPins = {}
 local minimapPins = {}
+
+-- HBD integration
+local HBD = LibStub and LibStub("HereBeDragons-2.0", true)
+local HBDPins = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
+local SANDPACKER_REF = "SandPacker"
 local trackingEnabled = true
 local minimapButton
 local mapOverlay
 
+
 function AddMapPins()
+    if not HBD or not HBDPins then
+        print("[SandPacker] HereBeDragons library not found!")
+        return
+    end
+    -- Remove old pins
+    HBDPins:RemoveAllWorldMapIcons(SANDPACKER_REF)
+    HBDPins:RemoveAllMinimapIcons(SANDPACKER_REF)
+    mapPins = {}
+    minimapPins = {}
+
     -- Merge static and discovered nodes
     local allNodes = {}
     for _, node in ipairs(silithystNodes) do table.insert(allNodes, node) end
     for _, node in ipairs(SandPacker_SavedNodes) do table.insert(allNodes, node) end
     print("[SandPacker DEBUG] AddMapPins called. trackingEnabled:", trackingEnabled)
     if not trackingEnabled then return end
-    -- World Map pins (Questie-style overlay)
-    if WorldMapFrame and GetRealZoneText() == "Silithus" then
-        -- Create overlay if needed
-        if not mapOverlay then
-            mapOverlay = CreateFrame("Frame", "SandPackerMapOverlay", WorldMapFrame)
-            mapOverlay:SetAllPoints(WorldMapFrame)
-            mapOverlay:SetFrameStrata("FULLSCREEN")
-            mapOverlay:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 10)
-        end
-        -- Hook AddMapPins to WorldMapFrame events
-        if not WorldMapFrame.SandPackerHooked then
-            WorldMapFrame:HookScript("OnShow", function()
-                if GetRealZoneText() == "Silithus" and trackingEnabled then AddMapPins() end
-            end)
-            WorldMapFrame:HookScript("OnSizeChanged", function()
-                if GetRealZoneText() == "Silithus" and trackingEnabled then AddMapPins() end
-            end)
-            WorldMapFrame.SandPackerHooked = true
-        end
-        mapOverlay:Show()
-        -- Remove old pins
-        for _, pin in ipairs(mapPins) do
-            if pin then pin:Hide(); pin:SetParent(nil) end
-        end
-        mapPins = {}
-        for i, node in ipairs(allNodes) do
-            local pin = CreateFrame("Frame", nil, mapOverlay)
-            pin:SetSize(9, 9)
-            pin.icon = pin:CreateTexture(nil, "ARTWORK")
-            pin.icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
-            pin.icon:SetTexCoord(0, 1, 0, 1)
-            pin.icon:SetAllPoints(pin)
-            pin:Show()
-            mapPins[i] = pin
-        end
-        -- Update pin positions
-        local function UpdatePinPositions()
-            local mapW, mapH = mapOverlay:GetWidth(), mapOverlay:GetHeight()
-            for i, node in ipairs(allNodes) do
-                local pin = mapPins[i]
-                if pin then
-                    pin:ClearAllPoints()
-                    pin:SetPoint("TOPLEFT", mapOverlay, "TOPLEFT", node.x / 100 * mapW - 9, -node.y / 100 * mapH - 9)
-                end
-            end
-        end
-        mapOverlay:SetScript("OnShow", UpdatePinPositions)
-        mapOverlay:SetScript("OnSizeChanged", UpdatePinPositions)
-        UpdatePinPositions()
-        print("[SandPacker DEBUG] Map pins placed using overlay.")
-    elseif mapOverlay then
-        mapOverlay:Hide()
+
+    -- Get Silithus map info
+    local silithusUiMapID = 1451 -- Classic Silithus
+    for i, node in ipairs(allNodes) do
+        -- Create icon frame for world map
+    local pin = CreateFrame("Frame", nil, UIParent)
+    pin:SetSize(8, 8)
+        pin.icon = pin:CreateTexture(nil, "ARTWORK")
+        pin.icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
+        pin.icon:SetTexCoord(0, 1, 0, 1)
+        pin.icon:SetAllPoints(pin)
+        pin:Show()
+        mapPins[i] = pin
+        -- Add to world map using HBD
+        HBDPins:AddWorldMapIconMap(SANDPACKER_REF, pin, silithusUiMapID, node.x / 100, node.y / 100, nil, nil)
+        -- Add to minimap using HBD
+        HBDPins:AddMinimapIconMap(SANDPACKER_REF, pin, silithusUiMapID, node.x / 100, node.y / 100, false, false)
+        minimapPins[i] = pin
     end
+    print("[SandPacker DEBUG] Map pins placed using HereBeDragons.")
 end
 
-    -- Minimap pins
-    if GetRealZoneText() == "Silithus" then
-        local px, py = UnitPosition("player")
-        for i, node in ipairs(silithystNodes) do
-            if not minimapPins[i] then
-                local pin = CreateFrame("Frame", nil, Minimap)
-                pin:SetSize(8, 8)
-                pin.icon = pin:CreateTexture(nil, "ARTWORK")
-                pin.icon:SetTexture("Interface\\Icons\\INV_Misc_Dust_02")
-                pin.icon:SetTexCoord(0, 1, 0, 1)
-                pin.icon:SetAllPoints(pin)
-                minimapPins[i] = pin
-            end
-            minimapPins[i]:Show()
-        end
-        SandPacker:SetScript("OnUpdate", function()
-            local playerX, playerY, playerMap = UnitPosition("player")
-            for i, node in ipairs(silithystNodes) do
-                local pin = minimapPins[i]
-                if pin then
-                    -- Convert node coords (0-100) to world position
-                    local nodeX, nodeY = node.x, node.y
-                    -- Silithus map bounds (approximate, for Classic)
-                    local mapMinX, mapMinY, mapMaxX, mapMaxY = 0, 0, 100, 100
-                    local dx = (nodeX - (playerX or 0)) * 10 -- scale for minimap
-                    local dy = (nodeY - (playerY or 0)) * 10
-                    local dist = math.sqrt(dx*dx + dy*dy)
-                    if dist < 80 then -- Only show if within 80 units (tweak as needed)
-                        pin:SetPoint("CENTER", Minimap, "CENTER", dx, -dy)
-                        pin:Show()
-                    else
-                        pin:Hide()
-                    end
-                end
-            end
-        end)
-    end
+
 
 local function RemoveMapPins()
     print("[SandPacker DEBUG] RemoveMapPins called.")
+    if HBDPins then
+        HBDPins:RemoveAllWorldMapIcons(SANDPACKER_REF)
+        HBDPins:RemoveAllMinimapIcons(SANDPACKER_REF)
+    end
     for _, pin in ipairs(mapPins) do
         if pin then
             pin:Hide()
