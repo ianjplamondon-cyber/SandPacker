@@ -1,16 +1,17 @@
 -- SandLocations.lua
 -- List of Silithyst node locations for SandPacker
-
+SandPacker_SilithystNodes = {
     {x = 32.8, y = 53.7},
     {x = 34.0, y = 36.0},
     {x = 36.7, y = 29.8},
     {x = 38.0, y = 41.0},
     {x = 39.0, y = 59.0},
     {x = 41.2, y = 45.6},
-    {x = 42.5, y = 83.6a},
+    {x = 42.5, y = 83.6},
     {x = 44.9, y = 62.3},
     {x = 45.0, y = 23.0},
     {x = 47.0, y = 38.0},
+    {x = 47.1, y = 46.5},
     {x = 49.5, y = 19.2},
     {x = 51.3, y = 51.2},
     {x = 53.0, y = 63.0},
@@ -23,5 +24,4 @@
     {x = 60.1, y = 45.9},
     {x = 63.0, y = 29.0},
     {x = 65.2, y = 44.1},
-SandPacker_SilithystNodes = {
 }
