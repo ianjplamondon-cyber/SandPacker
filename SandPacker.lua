@@ -1,6 +1,4 @@
--- Load Silithyst node locations from SandLocations.lua
-
-local trackingEnabled = true -- Ensure tracking is enabled by default
+local trackingEnabled = true 
 local silithystNodes = SandPacker_SilithystNodes or {}
 SandPacker_SavedNodes = SandPacker_SavedNodes or {}
 
@@ -43,7 +41,6 @@ activePins = {}
 local SandPacker = CreateFrame("Frame", "SandPackerFrame")
 
 -- Standalone robust frame pool for SandPacker
-
 local SandPackerFramePool = {}
 local unusedFrames = {}
 local usedFrames = {}
@@ -101,7 +98,7 @@ local function ProcessQueue()
         local frame = mapDrawCall[2]
         HBDPins:AddWorldMapIconMap(unpack(mapDrawCall))
         frame:SetSize(16, 16)
-        -- Do NOT set parent/frame level/strata for world map pins; HBD handles this (Questie style)
+        
     end
     while #SandPackerMinimapDrawQueue > 0 do
         local minimapDrawCall = table.remove(SandPackerMinimapDrawQueue, 1)
@@ -134,12 +131,10 @@ local function AddMapPins()
     local allNodes = {}
     for _, node in ipairs(silithystNodes) do table.insert(allNodes, node) end
     for _, node in ipairs(SandPacker_SavedNodes) do table.insert(allNodes, node) end
-    print("[SandPacker DEBUG] AddMapPins called. trackingEnabled:", trackingEnabled)
     SandPacker_PinData = {}
     local silithusUiMapID = 1451 -- Classic Silithus
     for i, node in ipairs(allNodes) do
         table.insert(SandPacker_PinData, {x = node.x, y = node.y})
-        print(string.format("[SandPacker DEBUG] Adding world map pin #%d at %.2f, %.2f", i, node.x, node.y))
     local worldMapPin = CreateFrame("Frame", nil)
     worldMapPin:SetSize(8, 8)
     local icon = worldMapPin:CreateTexture(nil, "ARTWORK")
@@ -159,20 +154,12 @@ local function AddMapPins()
         table.insert(activePins, pin)
     end
     StartDrawQueueTimer()
-    print("[SandPacker DEBUG] activePins count after AddMapPins:", #activePins)
-    print("[SandPacker DEBUG] Map pins placed using HereBeDragons.")
     if HBDPins and HBDPins.worldmapProvider and HBDPins.worldmapProvider.RefreshAllData then
-        print("[SandPacker DEBUG] Forcing HBD worldmapProvider:RefreshAllData()")
         HBDPins.worldmapProvider:RefreshAllData()
     end
 end
 
-
-
-
-
 local function RemoveMapPins()
-    print("[SandPacker DEBUG] RemoveMapPins called.")
     HBDPins:RemoveAllWorldMapIcons(SandPackerRef)
     HBDPins:RemoveAllMinimapIcons(SandPackerRef)
     SandPackerFramePool:RecycleAll()
@@ -182,7 +169,6 @@ end
 
 
 function ToggleTracking()
-    print("[SandPacker DEBUG] ToggleTracking called. trackingEnabled:", trackingEnabled)
     trackingEnabled = not trackingEnabled
     if trackingEnabled then
         trackingEnabled = true
@@ -196,17 +182,12 @@ function ToggleTracking()
     end
 end
 
-
-
-
-
 SandPacker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 SandPacker:RegisterEvent("PLAYER_ENTERING_WORLD")
 SandPacker:RegisterEvent("CHAT_MSG_LOOT")
 SandPacker:RegisterEvent("MAP_EXPLORATION_UPDATED")
 
 SandPacker:SetScript("OnEvent", function(self, event, ...)
-    print("[SandPacker DEBUG] Event:", event)
     if event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" or event == "MAP_EXPLORATION_UPDATED" then
         local zone = GetRealZoneText()
         if zone == "Silithus" and trackingEnabled then
@@ -241,9 +222,6 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
         end
     end
 end)
-
-
-
 
 print("[SandPacker DEBUG] Addon loaded.")
 C_Timer.After(2, function()
