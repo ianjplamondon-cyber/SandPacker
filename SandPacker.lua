@@ -104,7 +104,7 @@ local function ProcessQueue()
         local minimapDrawCall = table.remove(SandPackerMinimapDrawQueue, 1)
         local frame = minimapDrawCall[2]
         HBDPins:AddMinimapIconMap(unpack(minimapDrawCall))
-        frame:SetSize(16, 16)
+        frame:SetSize(8, 8)
         local frameLevel = Minimap:GetFrameLevel() + 2015
         frame:SetParent(Minimap)
         frame:SetFrameStrata(Minimap:GetFrameStrata())
