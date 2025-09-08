@@ -2,7 +2,10 @@
 ## Title: SandPacker
 ## Notes: Maps Silithyst node locations in Silithus and displays them on the map.
 ## Author: Pimptasty
-## Version: 0.1.0
+## Version: @project-version@
+
+## X-Curse-Project-ID: 1341263
+
 ## SavedVariables: SandPacker_SavedNodes
 
 Libs\HereBeDragons\LibStub\LibStub.lua
