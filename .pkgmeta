@@ -20,3 +20,5 @@ ignore:
   - "**/*.ps1"
   - "**/*.bat"
   - "*.code-workspace"
+  - SandPackerMainMap.png
+  - SandPackerMiniMap.png
