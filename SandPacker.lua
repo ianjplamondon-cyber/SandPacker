@@ -198,8 +198,9 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
     elseif event == "CHAT_MSG_LOOT" then
         local msg = ...
         if msg:find("Silithyst") then
-            print("[SandPacker] Silithyst picked up!")
-            -- Save current position as a new node if not already present
+            print("[SandPacker] Silithyst picked up! (pin creation disabled)")
+            -- Pin creation on loot is currently disabled.
+            --[[
             local mapID = 1451 -- Silithus mapID for Classic
             local px, py, _ = UnitPosition("player")
             if px and py then
@@ -219,6 +220,7 @@ SandPacker:SetScript("OnEvent", function(self, event, ...)
                     AddMapPins()
                 end
             end
+            --]]
         end
     end
 end)
